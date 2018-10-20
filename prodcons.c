@@ -50,6 +50,9 @@ producer (void * arg)
     // TODO:
     // * get the new item
     ITEM item = get_next_item();
+    if (item == NROF_ITEMS) {
+      break;
+    }
     printf("producer got %d\n", item);
     rsleep (100);	// simulating all kind of activities...
 
