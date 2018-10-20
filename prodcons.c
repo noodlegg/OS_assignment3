@@ -29,7 +29,8 @@ static void rsleep (int t);			// already implemented (see below)
 static ITEM get_next_item (void);	// already implemented (see below)
 
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t cond_prods[NROF_PRODUCERS]; //to signal different producers
+static pthread_cond_t cond_prod = PTHREAD_COND_INITIALIZER; //to signal different producers
+static pthread_cond_t cond_buffer[NROF_ITEMS];
 static pthread_cond_t cond_cons = PTHREAD_COND_INITIALIZER; //to signal the consumer
 
 static int produced_count = 0;
@@ -44,15 +45,12 @@ int write_pointer = 0;
 static void *
 producer (void * arg)
 {
-  int id = arg; //identifier of this producers
-
   while (produced_count < NROF_ITEMS)
   {
     // TODO:
     // * get the new item
     ITEM item = get_next_item();
-    printf ("Producer %d: item %d gained\n", id, item);
-
+    printf("producer got %d\n", item);
     rsleep (100);	// simulating all kind of activities...
 
     // TODO:
@@ -61,28 +59,26 @@ producer (void * arg)
     // follow this pseudocode (according to the ConditionSynchronization lecture):
     //      mutex-lock;
     pthread_mutex_lock(&mutex);
-    printf ("Producer %d: mutex locked!\n", id);
     //      while not condition-for-this-producer
-    while (items_in_buffer >= BUFFER_SIZE) {
+    while (item != expected_item) {
       //          wait-cv;
-      pthread_cond_wait(&cond_prods[id], &mutex);
-      printf ("Producer %d: signalled!\n", id);
+      printf("producer wait with %d\n", item);
+      pthread_cond_wait(&cond_buffer[item], &mutex);
     }
     //      critical-section;
     buffer[write_pointer] = item;
-    printf ("Producer %d: written item %d to buffer index %d\n", id, item, write_pointer);
+    printf("producer wrote %d\n", item);
     write_pointer = (write_pointer + 1) % BUFFER_SIZE;
 
     //      possible-cv-signals;
     items_in_buffer++;
+    printf("items in buffer = %d\n", items_in_buffer);
     if (items_in_buffer == 1) { //signal consumer that the buffer was empty
       pthread_cond_signal(&cond_cons);
     }
     //      mutex-unlock;
     pthread_mutex_unlock(&mutex);
-    printf ("Producer %d: mutex unlocked!\n", id);
     produced_count++;
-    //printf ("Producer %d: produced_count is %d\n", id, produced_count);
     //
     // (see condition_test() in condition_basics.c how to use condition variables)
   }
@@ -103,26 +99,26 @@ consumer (void * arg)
     // follow this pseudocode (according to the ConditionSynchronization lecture):
     //      mutex-lock;
     pthread_mutex_lock (&mutex);
-    printf ("   Consumer: mutex locked!\n");
     //      while not condition-for-this-consumer
-    while (items_in_buffer <= 0) {
+    while (items_in_buffer == 0) {
       //          wait-cv;
+      printf("consumer wait\n");
       pthread_cond_wait (&cond_cons, &mutex);
-      printf ("   Consumer: non-empty buffer signalled!\n");
+      printf("consumer unwait signalled\n");
     }
     //      critical-section;
     item = buffer[read_pointer];
-    printf ("   Consumer: item %d taken out of buffer\n", item);
+    printf ("%d\n", item);
     read_pointer = (read_pointer + 1) % BUFFER_SIZE;
     items_in_buffer--;
     expected_item++;
     //      possible-cv-signals;
-    if (items_in_buffer == 0) { //empty buffer
-      pthread_cond_signal (&cond_cons);
+    printf("consumer items in buffer after consumption is %d\n", items_in_buffer);
+    if (items_in_buffer < BUFFER_SIZE) {
+      pthread_cond_signal (&cond_buffer[expected_item]);
     }
     //      mutex-unlock;
     pthread_mutex_unlock (&mutex);
-    printf ("   Consumer: mutex unlocked!\n");
 
     rsleep (100);		// simulating all kind of activities...
   }
@@ -134,14 +130,6 @@ int main (void)
   pthread_t producer_threads[NROF_PRODUCERS];
   pthread_t consumer_thread;
 
-  //initialize buffer values
-  for (int n = 0; n < BUFFER_SIZE; n++) {
-    buffer[n] = -1;
-  }
-
-  for (int i = 0; i < BUFFER_SIZE; i++) {
-    printf ("item %d at buffer index %d\n", buffer[i], i);
-  }
   // TODO:
   // * startup the producer threads and the consumer thread
   for (int i = 0; i < NROF_PRODUCERS; i++) {
