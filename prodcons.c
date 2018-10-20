@@ -48,24 +48,23 @@ producer (void * arg)
 {
   bool empty = true;
   ITEM next = 0;
-  printf("producer started\n");
+
   while (finished == false)
   {
-    printf("in while loop\n");
+
     // TODO: get new items
     if(empty == true){
       next = get_next_item();
-      printf("%d ",next);
-      printf("new item\n");
+
       if(next == NROF_ITEMS){
-        printf("cant get here\n");
-        finished == true;
-        finished2 == true;
+
+        finished = true;
+        finished2 = true;
         break;
       }
       empty = false;
     }
-    printf("out of if\n");
+
     rsleep (100);	// simulating all kind of activities...
 
 
@@ -78,17 +77,15 @@ producer (void * arg)
       pthread_cond_wait(&producer_ready, &mutex);
     }
     else{
-      printf("11111111111111\n");
       if(buffercounter == BUFFER_SIZE){
-        printf("no right\n");
+
         pthread_cond_wait(&buffer_full, &mutex);
       }
-      printf("22222222222222\n");
       buffer[((tracker + 1) %BUFFER_SIZE)] = next;
-      printf('33333333333333\n');
+
       next_item++;
-      consumerprint== true;
-      printf("sending the print sign\n");
+      consumerprint = true;
+
       pthread_cond_wait(&producer_ready,&mutex);
       next = 0;
       empty = true;
@@ -102,18 +99,16 @@ producer (void * arg)
 static void *
 consumer (void * arg)
 {
-  printf("comsumer started\n");
+
 //  pthread_mutex_lock(&mutex);
   while (finished2 == false)
   {
 
     if(consumerprint == true){
-      printf("should print now \n");
-      printf("%d/n",buffer[(tracker + 1) %BUFFER_SIZE]);
+      printf("%d\n",buffer[(tracker + 1) %BUFFER_SIZE]);
       tracker++;
-      printf("in the if statement \n");
       pthread_cond_signal(&producer_ready);
-      consumerprint == false;
+      consumerprint = false;
     }
 
     // TODO:
@@ -148,7 +143,6 @@ pthread_create(&consumer_threads, NULL, consumer, NULL);
    {
        pthread_create(&producer_thread[i], NULL, producer, (void*) i);
    }
-
 
    // wait until all threads are finished
    pthread_join(consumer_threads, NULL);
