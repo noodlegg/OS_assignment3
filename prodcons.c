@@ -1,4 +1,4 @@
-/* 
+/*
  * Operating Systems  [2INCO]  Practical Assignment
  * Condition Variables Application
  *
@@ -6,12 +6,12 @@
  * STUDENT_NAME_2 (STUDENT_NR_2)
  *
  * Grading:
- * Students who hand in clean code that fully satisfies the minimum requirements will get an 8. 
- * "Extra" steps can lead to higher marks because we want students to take the initiative. 
- * Extra steps can be, for example, in the form of measurements added to your code, a formal 
+ * Students who hand in clean code that fully satisfies the minimum requirements will get an 8.
+ * "Extra" steps can lead to higher marks because we want students to take the initiative.
+ * Extra steps can be, for example, in the form of measurements added to your code, a formal
  * analysis of deadlock freeness etc.
  */
- 
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -24,25 +24,59 @@
 #include "prodcons.h"
 
 static ITEM buffer[BUFFER_SIZE];
+int buffercounter =0;
 
 static void rsleep (int t);			// already implemented (see below)
 static ITEM get_next_item (void);	// already implemented (see below)
-
+int produced_items = 0;
+int producers_amount = 0;
+static pthread_mutex_t      mutex          = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t       producer_ready      = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t       buffer_full     = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t       done              = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t       consumer_table[NROF_PRODUCERS];
+bool ready = true;
+bool finished = false
+int tracker =0;
+int next_item =0 ;
 
 /* producer thread */
-static void * 
+static void *
 producer (void * arg)
 {
-    while (true /* TODO: not all items produced */)
+  ITEM next = 0;
+    while (finished = false)
     {
-        // TODO: 
-        // * get the new item
-		
+        // TODO: get new items
+        if(next = 0){
+        next = get_next_item();
+		    if(next = NROF_ITEMS){
+          pthread_cond_wait(&done, &mutex); //wait till consumer is done printing
+          finished = true;
+        }
+      }
         rsleep (100);	// simulating all kind of activities...
-		
+
+
 		// TODO:
 		// * put the item into buffer[]
 		//
+    pthread_mutex_lock(&mutex);
+
+if(next != next_item){
+  pthread_cond_wait(&producer_ready, &mutex);
+}
+else(){
+  if(buffercounter = BUFFER_SIZE){
+    pthread_cond_wait(&buffer_full, &mutex);
+  }
+  buffer((tracker + 1) %BUFFER_SIZE) = next;
+  tracker++;
+  pthread_cond_signal(&producer_ready);
+  next = 0;
+}
+pthread_mutex_unlock(&mutex);
+
         // follow this pseudocode (according to the ConditionSynchronization lecture):
         //      mutex-lock;
         //      while not condition-for-this-producer
@@ -57,12 +91,12 @@ producer (void * arg)
 }
 
 /* consumer thread */
-static void * 
+static void *
 consumer (void * arg)
 {
     while (true /* TODO: not all items retrieved from buffer[] */)
     {
-        // TODO: 
+        // TODO:
 		// * get the next item from buffer[]
 		// * print the number to stdout
         //
@@ -73,7 +107,7 @@ consumer (void * arg)
         //      critical-section;
         //      possible-cv-signals;
         //      mutex-unlock;
-		
+
         rsleep (100);		// simulating all kind of activities...
     }
 	return (NULL);
@@ -81,10 +115,10 @@ consumer (void * arg)
 
 int main (void)
 {
-    // TODO: 
+    // TODO:
     // * startup the producer threads and the consumer thread
-    // * wait until all threads are finished  
-    
+    // * wait until all threads are finished
+
     return (0);
 }
 
@@ -94,11 +128,11 @@ int main (void)
  * The calling thread will be suspended for a random amount of time between 0 and t microseconds
  * At the first call, the random generator is seeded with the current time
  */
-static void 
+static void
 rsleep (int t)
 {
     static bool first_call = true;
-    
+
     if (first_call == true)
     {
         srandom (time(NULL));
@@ -108,15 +142,15 @@ rsleep (int t)
 }
 
 
-/* 
+/*
  * get_next_item()
  *
  * description:
  *		thread-safe function to get a next job to be executed
- *		subsequent calls of get_next_item() yields the values 0..NROF_ITEMS-1 
- *		in arbitrary order 
+ *		subsequent calls of get_next_item() yields the values 0..NROF_ITEMS-1
+ *		in arbitrary order
  *		return value NROF_ITEMS indicates that all jobs have already been given
- * 
+ *
  * parameters:
  *		none
  *
@@ -131,8 +165,8 @@ get_next_item(void)
 	static bool 			jobs[NROF_ITEMS+1] = { false };	// keep track of issued jobs
 	static int              counter = 0;    // seq.nr. of job to be handled
     ITEM 					found;          // item to be returned
-	
-	/* avoid deadlock: when all producers are busy but none has the next expected item for the consumer 
+
+	/* avoid deadlock: when all producers are busy but none has the next expected item for the consumer
 	 * so requirement for get_next_item: when giving the (i+n)'th item, make sure that item (i) is going to be handled (with n=nrof-producers)
 	 */
 	pthread_mutex_lock (&job_mutex);
@@ -159,10 +193,10 @@ get_next_item(void)
 	        {
 	            // already handled, find a random one, with a bias for lower items
 	            found = (counter + (random() % NROF_PRODUCERS)) % NROF_ITEMS;
-	        }    
+	        }
 	    }
-	    
-	    // check if 'found' is really an unhandled item; 
+
+	    // check if 'found' is really an unhandled item;
 	    // if not: find another one
 	    if (jobs[found] == true)
 	    {
@@ -175,9 +209,7 @@ get_next_item(void)
 	    }
 	}
     jobs[found] = true;
-			
+
 	pthread_mutex_unlock (&job_mutex);
 	return (found);
 }
-
-
