@@ -48,16 +48,11 @@ producer (void * arg)
 {
   bool empty = true;
   ITEM next = 0;
-
-  while (finished == false)
+  while (true)
   {
-
-    // TODO: get new items
     if(empty == true){
       next = get_next_item();
-
       if(next == NROF_ITEMS){
-
         finished = true;
         finished2 = true;
         break;
@@ -75,6 +70,7 @@ producer (void * arg)
 
     if(next != next_item){
       pthread_cond_wait(&producer_ready, &mutex);
+      empty = false;
     }
     else{
       if(buffercounter == BUFFER_SIZE){
@@ -82,12 +78,9 @@ producer (void * arg)
         pthread_cond_wait(&buffer_full, &mutex);
       }
       buffer[((tracker + 1) %BUFFER_SIZE)] = next;
-
-      next_item++;
       consumerprint = true;
 
       pthread_cond_wait(&producer_ready,&mutex);
-      next = 0;
       empty = true;
     }
     pthread_mutex_unlock(&mutex);
@@ -99,15 +92,16 @@ producer (void * arg)
 static void *
 consumer (void * arg)
 {
-
+int amount =0;
 //  pthread_mutex_lock(&mutex);
-  while (finished2 == false)
+  while (amount<NROF_ITEMS)
   {
 
     if(consumerprint == true){
-      printf("%d\n",buffer[(tracker + 1) %BUFFER_SIZE]);
+      printf("%d result is\n",buffer[(tracker + 1) %BUFFER_SIZE]);
+      amount++;
+      next_item++;
       tracker++;
-      pthread_cond_signal(&producer_ready);
       consumerprint = false;
     }
 
@@ -122,8 +116,8 @@ consumer (void * arg)
     //      critical-section;
     //      possible-cv-signals;
     //      mutex-unlock;
-
     rsleep (100);		// simulating all kind of activities...
+    pthread_cond_signal(&producer_ready);
   }
 //  pthread_mutex_unlock(&mutex);
   return (NULL);
