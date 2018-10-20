@@ -53,7 +53,6 @@ producer (void * arg)
     if (item == NROF_ITEMS) {
       break;
     }
-    printf("producer got %d\n", item);
     rsleep (100);	// simulating all kind of activities...
 
     // TODO:
@@ -65,17 +64,17 @@ producer (void * arg)
     //      while not condition-for-this-producer
     while (item != expected_item) {
       //          wait-cv;
-      printf("producer wait with %d\n", item);
       pthread_cond_wait(&cond_buffer[item], &mutex);
+    }
+    if (items_in_buffer == BUFFER_SIZE) {
+      pthread_cond_wait (&cond_prod, &mutex);
     }
     //      critical-section;
     buffer[write_pointer] = item;
-    printf("producer wrote %d\n", item);
     write_pointer = (write_pointer + 1) % BUFFER_SIZE;
 
     //      possible-cv-signals;
     items_in_buffer++;
-    printf("items in buffer = %d\n", items_in_buffer);
     if (items_in_buffer == 1) { //signal consumer that the buffer was empty
       pthread_cond_signal(&cond_cons);
     }
@@ -105,9 +104,7 @@ consumer (void * arg)
     //      while not condition-for-this-consumer
     while (items_in_buffer == 0) {
       //          wait-cv;
-      printf("consumer wait\n");
       pthread_cond_wait (&cond_cons, &mutex);
-      printf("consumer unwait signalled\n");
     }
     //      critical-section;
     item = buffer[read_pointer];
@@ -116,10 +113,10 @@ consumer (void * arg)
     items_in_buffer--;
     expected_item++;
     //      possible-cv-signals;
-    printf("consumer items in buffer after consumption is %d\n", items_in_buffer);
     if (items_in_buffer < BUFFER_SIZE) {
-      pthread_cond_signal (&cond_buffer[expected_item]);
+      pthread_cond_signal (&cond_prod);
     }
+    pthread_cond_signal (&cond_buffer[expected_item]);
     //      mutex-unlock;
     pthread_mutex_unlock (&mutex);
 
