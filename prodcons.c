@@ -3,7 +3,7 @@
 * Condition Variables Application
 *
 * Thomas Gian (0995114)
-* Minjin Song (STUDENT_NR_2)
+* Minjin Song (1194206)
 *
 * Grading:
 * Students who hand in clean code that fully satisfies the minimum requirements will get an 8.
@@ -27,11 +27,17 @@ static ITEM buffer[BUFFER_SIZE];
 
 static void rsleep (int t);			// already implemented (see below)
 static ITEM get_next_item (void);	// already implemented (see below)
+
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t cond_prods[NROF_PRODUCERS]; //to signal different producers
+static pthread_cond_t cond_cons = PTHREAD_COND_INITIALIZER; //to signal the consumer
+
 static int produced_count = 0;
 static int items_in_buffer = 0;
 static int expected_item = 0;
+
+int read_pointer = 0;
+int write_pointer = 0;
 
 
 /* producer thread */
@@ -45,6 +51,7 @@ producer (void * arg)
     // TODO:
     // * get the new item
     ITEM item = get_next_item();
+    printf ("Producer %d: item %d gained\n", id, item);
 
     rsleep (100);	// simulating all kind of activities...
 
@@ -54,31 +61,28 @@ producer (void * arg)
     // follow this pseudocode (according to the ConditionSynchronization lecture):
     //      mutex-lock;
     pthread_mutex_lock(&mutex);
-    printf ("Producer: mutex locked!\n");
+    printf ("Producer %d: mutex locked!\n", id);
     //      while not condition-for-this-producer
     while (items_in_buffer >= BUFFER_SIZE) {
       //          wait-cv;
-      pthread_cond_wait(&cond, &mutex);
-      printf ("Producer: signalled!\n");
+      pthread_cond_wait(&cond_prods[id], &mutex);
+      printf ("Producer %d: signalled!\n", id);
     }
     //      critical-section;
-    for (int i = 0; i < BUFFER_SIZE; i++) {
-      if (buffer[i] < item) {
-        buffer[i] = item;
-        printf ("Producer: written item %d to buffer index %d\n", item, i);
-        break;
-      }
-    }
+    buffer[write_pointer] = item;
+    printf ("Producer %d: written item %d to buffer index %d\n", id, item, write_pointer);
+    write_pointer = (write_pointer + 1) % BUFFER_SIZE;
+
     //      possible-cv-signals;
     items_in_buffer++;
     if (items_in_buffer == 1) { //signal consumer that the buffer was empty
-      pthread_cond_signal(&cond);
+      pthread_cond_signal(&cond_cons);
     }
     //      mutex-unlock;
     pthread_mutex_unlock(&mutex);
-    printf ("Producer: mutex unlocked!\n");
+    printf ("Producer %d: mutex unlocked!\n", id);
     produced_count++;
-    printf ("Producer: produced_count is %d\n", produced_count);
+    //printf ("Producer %d: produced_count is %d\n", id, produced_count);
     //
     // (see condition_test() in condition_basics.c how to use condition variables)
   }
@@ -103,23 +107,18 @@ consumer (void * arg)
     //      while not condition-for-this-consumer
     while (items_in_buffer <= 0) {
       //          wait-cv;
-      pthread_cond_wait (&cond, &mutex);
+      pthread_cond_wait (&cond_cons, &mutex);
       printf ("   Consumer: non-empty buffer signalled!\n");
     }
     //      critical-section;
-    for (int i = 0; i < BUFFER_SIZE; i++) {
-      if (buffer[i] == expected_item) {
-        item = buffer[i];
-        buffer[i] = 0;  // clear the index value
-        items_in_buffer--;
-        printf ("   Consumer: item %d taken out of buffer\n", item);
-        break;
-      }
-    }
+    item = buffer[read_pointer];
+    printf ("   Consumer: item %d taken out of buffer\n", item);
+    read_pointer = (read_pointer + 1) % BUFFER_SIZE;
+    items_in_buffer--;
     expected_item++;
     //      possible-cv-signals;
-    if (items_in_buffer == 0) {
-      pthread_cond_signal (&cond);
+    if (items_in_buffer == 0) { //empty buffer
+      pthread_cond_signal (&cond_cons);
     }
     //      mutex-unlock;
     pthread_mutex_unlock (&mutex);
