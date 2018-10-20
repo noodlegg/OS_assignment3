@@ -2,8 +2,8 @@
 * Operating Systems  [2INCO]  Practical Assignment
 * Condition Variables Application
 *
-* STUDENT_NAME_1 (STUDENT_NR_1)
-* STUDENT_NAME_2 (STUDENT_NR_2)
+* Dennis Rizvic (1020540)
+* Hans Chia (0979848)
 *
 * Grading:
 * Students who hand in clean code that fully satisfies the minimum requirements will get an 8.
@@ -32,7 +32,6 @@ static ITEM get_next_item (void);	// already implemented (see below)
 int produced_items = 0;
 int producers_amount = 0;
 static pthread_mutex_t      mutex          = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t       producer_ready      = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t       buffer_full     = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t       send             = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t       producer_table[NROF_PRODUCERS];
