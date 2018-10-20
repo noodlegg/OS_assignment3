@@ -25,6 +25,7 @@
 
 static ITEM buffer[BUFFER_SIZE];
 int buffercounter =0;
+int NextOne[NROF_PRODUCERS];
 
 static void rsleep (int t);			// already implemented (see below)
 static ITEM get_next_item (void);	// already implemented (see below)
@@ -33,8 +34,8 @@ int producers_amount = 0;
 static pthread_mutex_t      mutex          = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t       producer_ready      = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t       buffer_full     = PTHREAD_COND_INITIALIZER;
-static pthread_cond_t       done              = PTHREAD_COND_INITIALIZER;
-static pthread_cond_t       consumer_table[NROF_PRODUCERS];
+static pthread_cond_t       send             = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t       producer_table[NROF_PRODUCERS];
 bool ready = true;
 bool finished = false;
 int tracker = 0;
@@ -46,6 +47,7 @@ bool consumerprint = false;
 static void *
 producer (void * arg)
 {
+  int counter = arg;
   bool empty = true;
   ITEM next = 0;
   while (true)
@@ -59,6 +61,7 @@ producer (void * arg)
       }
       empty = false;
     }
+    NextOne[counter] = next;
 
     rsleep (100);	// simulating all kind of activities...
 
@@ -69,21 +72,18 @@ producer (void * arg)
     pthread_mutex_lock(&mutex);
 
     if(next != next_item){
-      pthread_cond_wait(&producer_ready, &mutex);
+      pthread_cond_wait(&producer_table[counter], &mutex);
       empty = false;
     }
-    else{
       if(buffercounter == BUFFER_SIZE){
-
         pthread_cond_wait(&buffer_full, &mutex);
       }
       buffer[((tracker + 1) %BUFFER_SIZE)] = next;
       consumerprint = true;
-
-      pthread_cond_wait(&producer_ready,&mutex);
+      buffercounter++;
+      pthread_cond_signal(&send);
       empty = true;
-    }
-    pthread_mutex_unlock(&mutex);
+      pthread_mutex_unlock(&mutex);
   }
   return (NULL);
 }
@@ -93,18 +93,27 @@ static void *
 consumer (void * arg)
 {
 int amount =0;
-//  pthread_mutex_lock(&mutex);
+pthread_mutex_lock(&mutex);
   while (amount<NROF_ITEMS)
   {
-
-    if(consumerprint == true){
+//    if(buffercounter==0){
+//      pthread_cond_wait(&send,&mutex);
+//    }
+pthread_cond_wait(&send,&mutex);
       printf("%d\n",buffer[(tracker + 1) %BUFFER_SIZE]);
       amount++;
       next_item++;
       tracker++;
-      consumerprint = false;
+      buffercounter--;
+      pthread_cond_signal(&buffer_full);
+      for(int i = 0; i<NROF_PRODUCERS; i++){
+        if(NextOne[i] == next_item){
+      pthread_cond_signal(&producer_table[i]);
     }
-
+  //  printf("%d\n",NextOne[i]);
+  }
+  //  printf("send to table\n");
+  }
     // TODO:
     // * get the next item from buffer[]
     // * print the number to stdout
@@ -117,9 +126,10 @@ int amount =0;
     //      possible-cv-signals;
     //      mutex-unlock;
     rsleep (100);		// simulating all kind of activities...
-    pthread_cond_signal(&producer_ready);
-  }
-//  pthread_mutex_unlock(&mutex);
+
+
+
+pthread_mutex_unlock(&mutex);
   return (NULL);
 }
 
