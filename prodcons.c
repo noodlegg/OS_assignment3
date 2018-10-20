@@ -72,6 +72,7 @@ else(){
   }
   buffer((tracker + 1) %BUFFER_SIZE) = next;
   tracker++;
+  next_item++;
   pthread_cond_signal(&producer_ready);
   next = 0;
 }
