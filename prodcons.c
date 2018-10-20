@@ -98,7 +98,7 @@ int amount =0;
   {
 
     if(consumerprint == true){
-      printf("%d result is\n",buffer[(tracker + 1) %BUFFER_SIZE]);
+      printf("%d\n",buffer[(tracker + 1) %BUFFER_SIZE]);
       amount++;
       next_item++;
       tracker++;
