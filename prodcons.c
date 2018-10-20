@@ -36,25 +36,36 @@ static pthread_cond_t       buffer_full     = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t       done              = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t       consumer_table[NROF_PRODUCERS];
 bool ready = true;
-bool finished = false
-int tracker =0;
+bool finished = false;
+int tracker = 0;
 int next_item =0 ;
+bool finished2 = false;
+bool consumerprint = false;
 
 /* producer thread */
 static void *
 producer (void * arg)
 {
+  bool empty = true;
   ITEM next = 0;
-  while (finished = false)
+  printf("producer started\n");
+  while (finished == false)
   {
+    printf("in while loop\n");
     // TODO: get new items
-    if(next = 0){
+    if(empty == true){
       next = get_next_item();
-      if(next = NROF_ITEMS){
-        pthread_cond_wait(&done, &mutex); //wait till consumer is done printing
-        finished = true;
+      printf("%d ",next);
+      printf("new item\n");
+      if(next == NROF_ITEMS){
+        printf("cant get here\n");
+        finished == true;
+        finished2 == true;
+        break;
       }
+      empty = false;
     }
+    printf("out of if\n");
     rsleep (100);	// simulating all kind of activities...
 
 
@@ -66,15 +77,21 @@ producer (void * arg)
     if(next != next_item){
       pthread_cond_wait(&producer_ready, &mutex);
     }
-    else(){
-      if(buffercounter = BUFFER_SIZE){
+    else{
+      printf("11111111111111\n");
+      if(buffercounter == BUFFER_SIZE){
+        printf("no right\n");
         pthread_cond_wait(&buffer_full, &mutex);
       }
-      buffer((tracker + 1) %BUFFER_SIZE) = next;
-      tracker++;
+      printf("22222222222222\n");
+      buffer[((tracker + 1) %BUFFER_SIZE)] = next;
+      printf('33333333333333\n');
       next_item++;
-      pthread_cond_signal(&producer_ready);
+      consumerprint== true;
+      printf("sending the print sign\n");
+      pthread_cond_wait(&producer_ready,&mutex);
       next = 0;
+      empty = true;
     }
     pthread_mutex_unlock(&mutex);
   }
@@ -85,8 +102,20 @@ producer (void * arg)
 static void *
 consumer (void * arg)
 {
-  while (true /* TODO: not all items retrieved from buffer[] */)
+  printf("comsumer started\n");
+//  pthread_mutex_lock(&mutex);
+  while (finished2 == false)
   {
+
+    if(consumerprint == true){
+      printf("should print now \n");
+      printf("%d/n",buffer[(tracker + 1) %BUFFER_SIZE]);
+      tracker++;
+      printf("in the if statement \n");
+      pthread_cond_signal(&producer_ready);
+      consumerprint == false;
+    }
+
     // TODO:
     // * get the next item from buffer[]
     // * print the number to stdout
@@ -101,14 +130,32 @@ consumer (void * arg)
 
     rsleep (100);		// simulating all kind of activities...
   }
+//  pthread_mutex_unlock(&mutex);
   return (NULL);
 }
 
 int main (void)
 {
   // TODO:
-  // * startup the producer threads and the consumer thread
-  // * wait until all threads are finished
+  pthread_t producer_thread[NROF_PRODUCERS];
+   pthread_t consumer_threads;
+
+   int i;
+
+   // startup the producer thread and the consumer threads
+pthread_create(&consumer_threads, NULL, consumer, NULL);
+   for (i = 0; i < NROF_PRODUCERS; i++)
+   {
+       pthread_create(&producer_thread[i], NULL, producer, (void*) i);
+   }
+
+
+   // wait until all threads are finished
+   pthread_join(consumer_threads, NULL);
+   for (i = 0; i < NROF_PRODUCERS; i++)
+   {
+       pthread_join(producer_thread[i], NULL);
+   }
 
   return (0);
 }
