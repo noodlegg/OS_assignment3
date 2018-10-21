@@ -35,11 +35,8 @@ static pthread_mutex_t      mutex          = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t       buffer_full     = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t       send             = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t       producer_table[NROF_PRODUCERS];
-bool ready = true;
-bool finished = false;
 int tracker = 0;
 int next_item =0 ;
-bool finished2 = false;
 bool consumerprint = false;
 
 /* producer thread */
@@ -47,18 +44,12 @@ static void *
 producer (void * arg)
 {
   int counter = arg;
-  bool empty = true;
   ITEM next = 0;
   while (true)
   {
-    if(empty == true){
-      next = get_next_item();
-      if(next == NROF_ITEMS){
-        finished = true;
-        finished2 = true;
-        break;
-      }
-      empty = false;
+    next = get_next_item();
+    if(next == NROF_ITEMS){
+      break;
     }
     NextOne[counter] = next;
 
@@ -72,7 +63,6 @@ producer (void * arg)
 
     if(next != next_item){
       pthread_cond_wait(&producer_table[counter], &mutex);
-      empty = false;
     }
       if(buffercounter == BUFFER_SIZE){
         pthread_cond_wait(&buffer_full, &mutex);
@@ -81,7 +71,6 @@ producer (void * arg)
       consumerprint = true;
       buffercounter++;
       pthread_cond_signal(&send);
-      empty = true;
       pthread_mutex_unlock(&mutex);
   }
   return (NULL);
